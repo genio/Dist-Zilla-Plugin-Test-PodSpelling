@@ -74,7 +74,7 @@ sub get_content {
     like   $content, qr/here /xms, 'includes here';
 
     SKIP: {
-        skip 'qr//m does not work properly in 5.8.8', 3,
+        skip 'qr//m does not work properly in 5.8.8', 6,
             unless "$]" > '5.010';
 
         unlike   $content, qr/^foo$/xms, q[does not include foo];
