@@ -8,6 +8,7 @@ package Dist::Zilla::Plugin::Test::PodSpelling;
 our $VERSION = '2.007005';
 
 use Moose;
+use Path::Tiny qw(path);
 extends 'Dist::Zilla::Plugin::InlineFiles';
 with (
     'Dist::Zilla::Role::FileMunger',
@@ -24,6 +25,12 @@ sub mvp_aliases { +{
     directory => 'directories',
     stopword => 'stopwords',
 } }
+
+has wordfile => (
+    is      => 'ro',
+    isa     => 'Str',
+    default => '.stopwords',
+);
 
 has wordlist => (
     is      => 'ro',
@@ -72,6 +79,7 @@ around dump_config => sub
 
     $config->{+__PACKAGE__} = {
         blessed($self) ne __PACKAGE__ ? ( version => $VERSION ) : (),
+        wordfile => $self->wordfile,
         wordlist => $self->wordlist,
         spell_cmd => $self->spell_cmd,
         directories => [ sort @{ $self->directories } ],
@@ -152,6 +160,17 @@ sub munge_file {
         }
     }
 
+    # read from the wordfile if it exists
+    if (my $wordfile = $self->wordfile) {
+        $self->log_debug( "Checking to see if $wordfile exists" );
+        if (-f $wordfile && -r _) {
+            $self->log_debug( "Adding each word from your $wordfile" );
+            for my $word ( path($wordfile)->lines_utf8({chomp=>1}) ) {
+                $self->add_stopword( $word );
+            }
+        }
+    }
+
     my $stopwords = $self->no_stopwords
         ? undef
         : join("\n", '__DATA__', sort $self->uniq_stopwords);
@@ -162,6 +181,7 @@ sub munge_file {
             {
                 name          => __PACKAGE__,
                 version       => __PACKAGE__->VERSION,
+                wordfile      => \$self->wordfile,
                 wordlist      => \$self->wordlist,
                 set_spell_cmd => \$set_spell_cmd,
                 stopwords     => \$stopwords,
@@ -203,6 +223,7 @@ or:
 
     [Test::PodSpelling]
     directory = docs
+    wordfile = .stopwords
     wordlist = Pod::Wordlist
     spell_cmd = aspell list
     stopword = CPAN
@@ -233,6 +254,13 @@ process.
 
 Additional directories you wish to search for POD spell checking purposes.
 C<bin> and C<lib> are set by default.
+
+=attr wordfile
+
+The filename for the file you store your stopwords in if you don't want to list
+them directly in your C<dist.ini>. One word per line in UTF-8.
+
+Defaults to C<.stopwords>.
 
 =attr wordlist
 
